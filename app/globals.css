@@ -1,0 +1,13 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0f; color: #e5e5e5; line-height: 1.5; }
+.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+.header { text-align: center; margin-bottom: 3rem; }
+.header h1 { font-size: 2.5rem; background: linear-gradient(90deg, #00d4ff, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.agents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+.agent-card { background: #16161f; border: 1px solid #2a2a3a; border-radius: 12px; padding: 1.5rem; }
+.agent-card h3 { color: #00d4ff; margin-bottom: 0.5rem; }
+.status-online { color: #22c55e; font-weight: 600; }
+.status-idle { color: #eab308; }
+.markets { background: #16161f; border-radius: 12px; padding: 1.5rem; margin-top: 2rem; }
+.warning { background: #451a03; border: 1px solid #f59e0b; color: #fbbf24; padding: 1rem; border-radius: 8px; margin: 2rem 0; }
+a { color: #60a5fa; }
