@@ -7,25 +7,29 @@ export default function Home() {
   const [markets, setMarkets] = useState<any[]>([]);
   const [arbs, setArbs] = useState<any[]>([]);
   const [temporal, setTemporal] = useState<any>({ signals: [], spotPrices: null });
+  const [statarb, setStatarb] = useState<any>({ signals: [] });
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
 
   const load = async () => {
     try {
-      const [statusRes, scannerRes, arbRes, temporalRes] = await Promise.all([
+      const [statusRes, scannerRes, arbRes, temporalRes, statRes] = await Promise.all([
         fetch('/api/status'),
         fetch('/api/scanner'),
         fetch('/api/arb'),
         fetch('/api/temporal'),
+        fetch('/api/statarb'),
       ]);
       const status = await statusRes.json();
       const scanner = await scannerRes.json();
       const arb = await arbRes.json();
       const temp = await temporalRes.json();
+      const stat = await statRes.json();
       setAgents(status.agents || []);
       setMarkets(scanner.markets || []);
       setArbs(arb.opportunities || []);
       setTemporal(temp);
+      setStatarb(stat);
       setLastUpdate(new Date().toLocaleTimeString());
     } catch (e) {
       console.error(e);
@@ -71,9 +75,33 @@ export default function Home() {
       )}
 
       <div className="markets">
+        <h2>Forecasting Ensemble — Statistical Arbitrage</h2>
+        <p style={{margin: '1rem 0'}}>
+          Momentum-adjusted fair value model (base 50% ± 24h change). Flags deviations &gt; 8%.
+        </p>
+        {(statarb.signals || []).length === 0 ? (
+          <p>No large statistical deviations right now.</p>
+        ) : (
+          <div style={{display: 'grid', gap: '0.75rem'}}>
+            {(statarb.signals || []).map((s: any, i: number) => (
+              <div key={i} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #a855f7'}}>
+                <strong>{s.question}</strong>
+                <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
+                  Market Up: {s.marketUp} • Fair: {s.fairValue} • Deviation: {s.deviation}%
+                </div>
+                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>
+                  {s.signal} — {s.edge} (spot {s.spotChange}%)
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="markets">
         <h2>Strategy Specialists — Temporal Arbitrage (Crypto Up/Down)</h2>
         <p style={{margin: '1rem 0'}}>
-          Compares live spot momentum (BTC/ETH/SOL/XRP) against Polymarket Up/Down prices. Strongest edge is usually in the final minutes of 5m/15m windows.
+          Compares live spot momentum against Polymarket Up/Down prices.
         </p>
         {temporal.spotPrices && (
           <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.9rem'}}>
@@ -94,7 +122,7 @@ export default function Home() {
                 <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
                   {s.asset} spot ${s.spotPrice?.toLocaleString()} ({s.spot24hChange}%) • Polymarket Up: {s.polymarketUp}
                 </div>
-                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{s.edge} — {s.action}</div>
+                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{s.edge}</div>
               </div>
             ))}
           </div>
@@ -104,7 +132,7 @@ export default function Home() {
       <div className="markets">
         <h2>Strategy Specialists — Complete-Set Arbitrage</h2>
         <p style={{margin: '1rem 0'}}>
-          Detects markets where YES + NO &lt; ~$0.985 (paper signals only). Real fills require CLOB best-ask confirmation.
+          Detects markets where YES + NO &lt; ~$0.985.
         </p>
         {arbs.length === 0 ? (
           <p>No complete-set opportunities above threshold right now.</p>
@@ -125,16 +153,16 @@ export default function Home() {
 
       <div className="markets">
         <h2>Scanner Agent — Live Crypto Markets</h2>
-        <p style={{margin: '1rem 0'}}>Real-time data from Polymarket Gamma API (refreshes every 30s)</p>
+        <p style={{margin: '1rem 0'}}>Real-time data from Polymarket Gamma API</p>
         {markets.length === 0 ? (
           <p>No crypto-relevant markets found right now.</p>
         ) : (
           <div style={{display: 'grid', gap: '0.75rem'}}>
-            {markets.map((m) => (
+            {markets.slice(0, 6).map((m) => (
               <div key={m.id} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px'}}>
                 <strong>{m.question}</strong>
                 <div style={{fontSize: '0.85rem', opacity: 0.7, marginTop: '0.25rem'}}>
-                  Vol: {m.volume ? Number(m.volume).toLocaleString() : '—'} • Liq: {m.liquidity ? Number(m.liquidity).toLocaleString() : '—'}
+                  Vol: {m.volume ? Number(m.volume).toLocaleString() : '—'}
                 </div>
               </div>
             ))}
@@ -144,7 +172,7 @@ export default function Home() {
 
       <div style={{marginTop: '2rem', textAlign: 'center', opacity: 0.6}}>
         <p>Repository: <a href="https://github.com/dwcwicofficial/wicai-polymarket-agents" target="_blank">github.com/dwcwicofficial/wicai-polymarket-agents</a></p>
-        <p>Next: Connect wallet securely → enable live mode</p>
+        <p>All signals are paper mode only</p>
       </div>
     </div>
   );
