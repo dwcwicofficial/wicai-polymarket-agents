@@ -6,22 +6,26 @@ export default function Home() {
   const [agents, setAgents] = useState<any[]>([]);
   const [markets, setMarkets] = useState<any[]>([]);
   const [arbs, setArbs] = useState<any[]>([]);
+  const [temporal, setTemporal] = useState<any>({ signals: [], spotPrices: null });
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
 
   const load = async () => {
     try {
-      const [statusRes, scannerRes, arbRes] = await Promise.all([
+      const [statusRes, scannerRes, arbRes, temporalRes] = await Promise.all([
         fetch('/api/status'),
         fetch('/api/scanner'),
         fetch('/api/arb'),
+        fetch('/api/temporal'),
       ]);
       const status = await statusRes.json();
       const scanner = await scannerRes.json();
       const arb = await arbRes.json();
+      const temp = await temporalRes.json();
       setAgents(status.agents || []);
       setMarkets(scanner.markets || []);
       setArbs(arb.opportunities || []);
+      setTemporal(temp);
       setLastUpdate(new Date().toLocaleTimeString());
     } catch (e) {
       console.error(e);
@@ -65,6 +69,37 @@ export default function Home() {
           ))}
         </div>
       )}
+
+      <div className="markets">
+        <h2>Strategy Specialists — Temporal Arbitrage (Crypto Up/Down)</h2>
+        <p style={{margin: '1rem 0'}}>
+          Compares live spot momentum (BTC/ETH/SOL/XRP) against Polymarket Up/Down prices. Strongest edge is usually in the final minutes of 5m/15m windows.
+        </p>
+        {temporal.spotPrices && (
+          <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.9rem'}}>
+            {Object.entries(temporal.spotPrices).map(([asset, data]: any) => (
+              <div key={asset} style={{background: '#1a1a24', padding: '0.5rem 0.75rem', borderRadius: '6px'}}>
+                {asset}: ${data.price?.toLocaleString()} ({data.change24h > 0 ? '+' : ''}{data.change24h?.toFixed(2)}%)
+              </div>
+            ))}
+          </div>
+        )}
+        {(temporal.signals || []).length === 0 ? (
+          <p>No strong temporal lag signals right now.</p>
+        ) : (
+          <div style={{display: 'grid', gap: '0.75rem'}}>
+            {(temporal.signals || []).map((s: any, i: number) => (
+              <div key={i} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #60a5fa'}}>
+                <strong>{s.question}</strong>
+                <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
+                  {s.asset} spot ${s.spotPrice?.toLocaleString()} ({s.spot24hChange}%) • Polymarket Up: {s.polymarketUp}
+                </div>
+                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{s.edge} — {s.action}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="markets">
         <h2>Strategy Specialists — Complete-Set Arbitrage</h2>
