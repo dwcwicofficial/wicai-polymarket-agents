@@ -5,19 +5,23 @@ import { useEffect, useState } from 'react';
 export default function Home() {
   const [agents, setAgents] = useState<any[]>([]);
   const [markets, setMarkets] = useState<any[]>([]);
+  const [arbs, setArbs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
 
   const load = async () => {
     try {
-      const [statusRes, scannerRes] = await Promise.all([
+      const [statusRes, scannerRes, arbRes] = await Promise.all([
         fetch('/api/status'),
         fetch('/api/scanner'),
+        fetch('/api/arb'),
       ]);
       const status = await statusRes.json();
       const scanner = await scannerRes.json();
+      const arb = await arbRes.json();
       setAgents(status.agents || []);
       setMarkets(scanner.markets || []);
+      setArbs(arb.opportunities || []);
       setLastUpdate(new Date().toLocaleTimeString());
     } catch (e) {
       console.error(e);
@@ -63,6 +67,28 @@ export default function Home() {
       )}
 
       <div className="markets">
+        <h2>Strategy Specialists — Complete-Set Arbitrage</h2>
+        <p style={{margin: '1rem 0'}}>
+          Detects markets where YES + NO &lt; ~$0.985 (paper signals only). Real fills require CLOB best-ask confirmation.
+        </p>
+        {arbs.length === 0 ? (
+          <p>No complete-set opportunities above threshold right now.</p>
+        ) : (
+          <div style={{display: 'grid', gap: '0.75rem'}}>
+            {arbs.map((o) => (
+              <div key={o.id} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #22c55e'}}>
+                <strong>{o.question}</strong>
+                <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
+                  YES {o.yesPrice} + NO {o.noPrice} = {o.sum} • Edge ~{o.edgePct}%
+                </div>
+                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{o.action}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="markets">
         <h2>Scanner Agent — Live Crypto Markets</h2>
         <p style={{margin: '1rem 0'}}>Real-time data from Polymarket Gamma API (refreshes every 30s)</p>
         {markets.length === 0 ? (
@@ -79,19 +105,6 @@ export default function Home() {
             ))}
           </div>
         )}
-      </div>
-
-      <div className="markets" style={{marginTop: '1.5rem'}}>
-        <h2>Primary Focus: Crypto Up/Down Markets</h2>
-        <p style={{margin: '1rem 0'}}>High-frequency 5m / 15m / 1h windows on BTC, ETH, SOL, XRP. Strategies emphasize:</p>
-        <ul style={{paddingLeft: '1.5rem', marginBottom: '1rem'}}>
-          <li>Temporal arbitrage (spot lag vs Polymarket)</li>
-          <li>Complete-set arbitrage (YES + NO &lt; $1)</li>
-          <li>Market making + liquidity rewards + maker rebates</li>
-          <li>Late-window high-probability sniping</li>
-          <li>Filtered copy of consistent high-edge wallets</li>
-        </ul>
-        <p>Orchestrator coordinates signals through the Risk Manager before any execution.</p>
       </div>
 
       <div style={{marginTop: '2rem', textAlign: 'center', opacity: 0.6}}>
