@@ -8,28 +8,32 @@ export default function Home() {
   const [arbs, setArbs] = useState<any[]>([]);
   const [temporal, setTemporal] = useState<any>({ signals: [], spotPrices: null });
   const [statarb, setStatarb] = useState<any>({ signals: [] });
+  const [risk, setRisk] = useState<any>({ sizedPositions: [] });
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
 
   const load = async () => {
     try {
-      const [statusRes, scannerRes, arbRes, temporalRes, statRes] = await Promise.all([
+      const [statusRes, scannerRes, arbRes, temporalRes, statRes, riskRes] = await Promise.all([
         fetch('/api/status'),
         fetch('/api/scanner'),
         fetch('/api/arb'),
         fetch('/api/temporal'),
         fetch('/api/statarb'),
+        fetch('/api/risk'),
       ]);
       const status = await statusRes.json();
       const scanner = await scannerRes.json();
       const arb = await arbRes.json();
       const temp = await temporalRes.json();
       const stat = await statRes.json();
+      const riskData = await riskRes.json();
       setAgents(status.agents || []);
       setMarkets(scanner.markets || []);
       setArbs(arb.opportunities || []);
       setTemporal(temp);
       setStatarb(stat);
+      setRisk(riskData);
       setLastUpdate(new Date().toLocaleTimeString());
     } catch (e) {
       console.error(e);
@@ -75,10 +79,36 @@ export default function Home() {
       )}
 
       <div className="markets">
-        <h2>Forecasting Ensemble — Statistical Arbitrage</h2>
+        <h2>Risk Manager — Fractional Kelly Sizing</h2>
         <p style={{margin: '1rem 0'}}>
-          Momentum-adjusted fair value model (base 50% ± 24h change). Flags deviations &gt; 8%.
+          Paper bankroll ${risk.bankroll?.toLocaleString() || '10,000'} • 1/4 Kelly • Max 2% per trade • Max 15% total exposure
         </p>
+        {risk.totalExposurePct && (
+          <p style={{marginBottom: '1rem', color: risk.withinLimits ? '#22c55e' : '#ef4444'}}>
+            Total recommended exposure: ${risk.totalRecommendedExposure?.toLocaleString()} ({risk.totalExposurePct}%)
+            {risk.withinLimits ? ' — within limits' : ' — exceeds limits'}
+          </p>
+        )}
+        {(risk.sizedPositions || []).length === 0 ? (
+          <p>No sized positions right now.</p>
+        ) : (
+          <div style={{display: 'grid', gap: '0.75rem'}}>
+            {(risk.sizedPositions || []).map((p: any, i: number) => (
+              <div key={i} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #f59e0b'}}>
+                <strong>{p.question}</strong>
+                <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
+                  Source: {p.source} • Edge ~{p.edgePct}% • Size: <strong>${p.recommendedSize}</strong>
+                </div>
+                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{p.rationale}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="markets">
+        <h2>Forecasting Ensemble — Statistical Arbitrage</h2>
+        <p style={{margin: '1rem 0'}}>Momentum-adjusted fair value model. Flags deviations &gt; 8%.</p>
         {(statarb.signals || []).length === 0 ? (
           <p>No large statistical deviations right now.</p>
         ) : (
@@ -89,9 +119,7 @@ export default function Home() {
                 <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
                   Market Up: {s.marketUp} • Fair: {s.fairValue} • Deviation: {s.deviation}%
                 </div>
-                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>
-                  {s.signal} — {s.edge} (spot {s.spotChange}%)
-                </div>
+                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{s.signal}</div>
               </div>
             ))}
           </div>
@@ -99,19 +127,7 @@ export default function Home() {
       </div>
 
       <div className="markets">
-        <h2>Strategy Specialists — Temporal Arbitrage (Crypto Up/Down)</h2>
-        <p style={{margin: '1rem 0'}}>
-          Compares live spot momentum against Polymarket Up/Down prices.
-        </p>
-        {temporal.spotPrices && (
-          <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.9rem'}}>
-            {Object.entries(temporal.spotPrices).map(([asset, data]: any) => (
-              <div key={asset} style={{background: '#1a1a24', padding: '0.5rem 0.75rem', borderRadius: '6px'}}>
-                {asset}: ${data.price?.toLocaleString()} ({data.change24h > 0 ? '+' : ''}{data.change24h?.toFixed(2)}%)
-              </div>
-            ))}
-          </div>
-        )}
+        <h2>Strategy Specialists — Temporal Arbitrage</h2>
         {(temporal.signals || []).length === 0 ? (
           <p>No strong temporal lag signals right now.</p>
         ) : (
@@ -120,9 +136,8 @@ export default function Home() {
               <div key={i} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #60a5fa'}}>
                 <strong>{s.question}</strong>
                 <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
-                  {s.asset} spot ${s.spotPrice?.toLocaleString()} ({s.spot24hChange}%) • Polymarket Up: {s.polymarketUp}
+                  {s.asset} • Polymarket Up: {s.polymarketUp} • {s.edge}
                 </div>
-                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{s.edge}</div>
               </div>
             ))}
           </div>
@@ -131,9 +146,6 @@ export default function Home() {
 
       <div className="markets">
         <h2>Strategy Specialists — Complete-Set Arbitrage</h2>
-        <p style={{margin: '1rem 0'}}>
-          Detects markets where YES + NO &lt; ~$0.985.
-        </p>
         {arbs.length === 0 ? (
           <p>No complete-set opportunities above threshold right now.</p>
         ) : (
@@ -144,26 +156,6 @@ export default function Home() {
                 <div style={{fontSize: '0.9rem', marginTop: '0.4rem'}}>
                   YES {o.yesPrice} + NO {o.noPrice} = {o.sum} • Edge ~{o.edgePct}%
                 </div>
-                <div style={{fontSize: '0.85rem', opacity: 0.75, marginTop: '0.25rem'}}>{o.action}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="markets">
-        <h2>Scanner Agent — Live Crypto Markets</h2>
-        <p style={{margin: '1rem 0'}}>Real-time data from Polymarket Gamma API</p>
-        {markets.length === 0 ? (
-          <p>No crypto-relevant markets found right now.</p>
-        ) : (
-          <div style={{display: 'grid', gap: '0.75rem'}}>
-            {markets.slice(0, 6).map((m) => (
-              <div key={m.id} style={{background: '#1a1a24', padding: '1rem', borderRadius: '8px'}}>
-                <strong>{m.question}</strong>
-                <div style={{fontSize: '0.85rem', opacity: 0.7, marginTop: '0.25rem'}}>
-                  Vol: {m.volume ? Number(m.volume).toLocaleString() : '—'}
-                </div>
               </div>
             ))}
           </div>
@@ -172,7 +164,7 @@ export default function Home() {
 
       <div style={{marginTop: '2rem', textAlign: 'center', opacity: 0.6}}>
         <p>Repository: <a href="https://github.com/dwcwicofficial/wicai-polymarket-agents" target="_blank">github.com/dwcwicofficial/wicai-polymarket-agents</a></p>
-        <p>All signals are paper mode only</p>
+        <p>All signals and sizes are paper mode only</p>
       </div>
     </div>
   );
